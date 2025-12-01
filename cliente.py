@@ -9,7 +9,7 @@ from typing import List, Tuple, Optional
 SERVERS: List[Tuple[str, int]] = [
     ('localhost', 9999),
     ('localhost', 9998),
-    ('localhost', 9997),
+    # ('localhost', 9997),
 ]
 
 def handle_server(
@@ -34,8 +34,7 @@ def handle_server(
             result_slice = pickle.load(file_rb)
 
         elapsed = time.perf_counter() - start
-        print(f"[Cliente <- {host}:{port}] Slice concluída em {elapsed:.4f}s "
-              f"(linhas: {slice_A.shape[0]})")
+        print(f"[Cliente <- {host}:{port}] Slice concluída em {elapsed:.4f}s (linhas: {slice_A.shape[0]})")
 
         result_list[index] = result_slice
 
@@ -45,22 +44,16 @@ def handle_server(
     finally:
         s.close()
 
-
 def pedir_dimensoes(num_servers: int) -> Tuple[int, int, int]:
     print(f"--- CONFIGURAÇÃO DE MATRIZES ALEATÓRIAS ({num_servers} Servidores) ---")
 
     while True:
         try:
-            rows_A = int(
-                input(
-                    f"Digite o número de LINHAS da Matriz A "
-                    f"(deve ser múltiplo de {num_servers}): "
-                )
-            )
-            if rows_A % num_servers == 0 and rows_A > 0:
+            rows_A = int(input("Digite o número de LINHAS da Matriz A: "))
+            if rows_A > 0:
                 break
             else:
-                print(f"Erro: O número de linhas deve ser divisível por {num_servers}.")
+                print("Valor deve ser maior que 0.")
         except ValueError:
             print("Por favor, digite um número inteiro.")
 
@@ -86,7 +79,6 @@ def pedir_dimensoes(num_servers: int) -> Tuple[int, int, int]:
 
     return rows_A, cols_A, cols_B
 
-
 def gerar_matrizes(rows_A: int, cols_A: int, cols_B: int, seed: Optional[int] = None):
     if seed is not None:
         np.random.seed(seed)
@@ -104,7 +96,6 @@ def gerar_matrizes(rows_A: int, cols_A: int, cols_B: int, seed: Optional[int] = 
         print("\n(Matrizes muito grandes para exibir no console, prosseguindo...)")
 
     return A, B
-
 
 def multiplicacao_distribuida(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     num_servers = len(SERVERS)
@@ -141,8 +132,7 @@ def multiplicacao_distribuida(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     C_distribuida = np.vstack(results)
     return C_distribuida
 
-
-def multiplicacao_serial(A: np.ndarray, B: np.ndarray) -> Tuple[np.ndarray, float]:
+def multiplicacao_serial(A: np.ndarray, B: np.ndarray):
     print("\n[Cliente] Fazendo multiplicação serial (prova real)...")
     start = time.perf_counter()
     C = np.dot(A, B)
@@ -150,31 +140,24 @@ def multiplicacao_serial(A: np.ndarray, B: np.ndarray) -> Tuple[np.ndarray, floa
     print(f"[Cliente] Multiplicação serial concluída em {elapsed:.4f}s.")
     return C, elapsed
 
-
-def comparar_resultados(C_dist: np.ndarray, C_serial: np.ndarray) -> None:
+def comparar_resultados(C_dist: np.ndarray, C_serial: np.ndarray):
     if np.array_equal(C_dist, C_serial):
-        print("\n✅ Verificação: SUCESSO! O resultado distribuído é igual ao serial.")
+        print("\nVerificação: SUCESSO! O resultado distribuído é igual ao serial.")
     else:
         diff_norm = np.linalg.norm(C_dist - C_serial)
-        print("\n❌ Verificação: FALHA! O resultado distribuído está diferente.")
+        print("\nVerificação: FALHA! O resultado distribuído está diferente.")
         print(f"Norma da diferença ||C_dist - C_serial|| = {diff_norm:.6f}")
-
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Cliente de multiplicação de matrizes distribuída (Computação Paralela/Concorrente)."
+        description="Cliente de multiplicação de matrizes distribuída."
     )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=None,
-        help="Seed opcional para geração reprodutível das matrizes."
-    )
+    parser.add_argument("--seed", type=int, default=None)
     args = parser.parse_args()
 
     num_servers = len(SERVERS)
     if num_servers == 0:
-        print("Nenhum servidor configurado em SERVERS. Encerrando.")
+        print("Nenhum servidor configurado.")
         return
 
     rows_A, cols_A, cols_B = pedir_dimensoes(num_servers)
@@ -189,13 +172,9 @@ def main():
 
     A, B = gerar_matrizes(rows_A, cols_A, cols_B, seed=args.seed)
 
-    try:
-        inicio_dist = time.perf_counter()
-        C_distribuida = multiplicacao_distribuida(A, B)
-        tempo_total_dist = time.perf_counter() - inicio_dist
-    except RuntimeError as e:
-        print(e)
-        return
+    inicio_dist = time.perf_counter()
+    C_distribuida = multiplicacao_distribuida(A, B)
+    tempo_total_dist = time.perf_counter() - inicio_dist
 
     if rows_A <= 20 and cols_B <= 20:
         print("\n--- RESULTADO FINAL (Distribuído) ---")
@@ -208,14 +187,10 @@ def main():
     print("\n=== RESUMO DE DESEMPENHO ===")
     print(f"Tempo TOTAL (distribuído + comunicação): {tempo_total_dist:.4f}s")
     print(f"Tempo serial (numpy.dot local):          {tempo_serial:.4f}s")
-
     if tempo_total_dist > 0:
         speedup = tempo_serial / tempo_total_dist
         print(f"Speedup (serial / distribuído):          {speedup:.4f}x")
-    else:
-        print("Speedup: não foi possível calcular (tempo distribuído ≈ 0).")
     print("=============================")
-
 
 if __name__ == "__main__":
     main()
